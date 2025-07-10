@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  password    String   // Optional with NextAuth if using credentials
+  role        Role     @default(BUYER)
+  image       String?  // Profile pic
+  products    Product[]
+  orders      Order[]  @relation("BuyerOrders")
+  reviews     Review[]
+  followed    Follow[] @relation("BuyerFollows")
+  followers   Follow[] @relation("FarmerFollows")
+
+  createdAt   DateTime @default(now())
+}
+
+enum Role {
+  BUYER
+  FARMER
+  ADMIN
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  image       String
+  price       Float
+  quantity    Int
+  category    String
+  farmerId    String
+  farmer      User     @relation(fields: [farmerId], references: [id])
+  orders      OrderProduct[]
+  reviews     Review[]
+  createdAt   DateTime @default(now())
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  buyerId     String
+  buyer       User     @relation("BuyerOrders", fields: [buyerId], references: [id])
+  totalAmount Float
+  status      OrderStatus @default(PENDING)
+  deliveryType String    // pickup or delivery
+  orderDate   DateTime   @default(now())
+  products    OrderProduct[]
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+}
+
+model OrderProduct {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  product   Product  @relation(fields: [productId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  buyerId   String
+  productId String
+  rating    Int      // 1 to 5
+  comment   String
+  createdAt DateTime @default(now())
+  buyer     User     @relation(fields: [buyerId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model Follow {
+  id        String   @id @default(cuid())
+  buyerId   String
+  farmerId  String
+
+  buyer     User     @relation("BuyerFollows", fields: [buyerId], references: [id])
+  farmer    User     @relation("FarmerFollows", fields: [farmerId], references: [id])
+}
