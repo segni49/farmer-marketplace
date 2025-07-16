@@ -1,53 +1,84 @@
-import { auth } from "./lib/auth";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { withAuth } from 'next-auth/middleware';
+import { NextResponse } from 'next/server';
 
-// Define public routes that don't require auth
-const PUBLIC_ROUTES = ["/", "/login", "/signup", "/about"];
+// Define protected routes and their required roles
+const protectedRoutes = {
+  '/dashboard': ['FARMER', 'ADMIN'],
+  '/admin': ['ADMIN'],
+  '/bookings': ['FARMER', 'BUYER', 'ADMIN'],
+  '/profile': ['FARMER', 'BUYER', 'ADMIN'],
+} as const;
 
-export async function middleware(request: NextRequest) {
-  const { pathname, origin } = request.nextUrl;
-  const session = await auth();
+export default withAuth(
+  function middleware(req) {
+    const { pathname } = req.nextUrl;
+    const userRole = req.nextauth.token?.role;
 
-  // Allow public routes without auth
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
-    return NextResponse.next();
-  }
+    // Skip middleware for API routes (they handle their own auth)
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.next();
+    }
 
-  // Redirect unauthenticated users
-  if (!session) {
-    const redirectUrl = new URL("/login", origin);
-    redirectUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Role-based access control
-  const role = session.user?.role;
-
-  const roleRules: Record<string, string[]> = {
-    admin: ["/admin"],
-    farmer: ["/farmer"],
-    buyer: ["/buyer"]
-  };
-
-  for (const [expectedRole, paths] of Object.entries(roleRules)) {
-    for (const protectedPath of paths) {
-      if (pathname.startsWith(protectedPath)) {
-        if (role !== expectedRole) {
-          return NextResponse.redirect(new URL("/unauthorized", origin));
+    // Check if route requires specific role
+    for (const [route, allowedRoles] of Object.entries(protectedRoutes)) {
+      if (pathname.startsWith(route)) {
+        if (!userRole || !allowedRoles.includes(userRole as 'ADMIN')) {
+          // Redirect to unauthorized page or home
+          return NextResponse.redirect(new URL('/', req.url));
         }
+        break;
       }
     }
-  }
 
-  return NextResponse.next();
-}
+    return NextResponse.next();
+  },
+  {
+    callbacks: {
+      authorized: ({ token, req }) => {
+        const { pathname } = req.nextUrl;
+
+        // Skip authorization for API routes (they handle their own auth)
+        if (pathname.startsWith('/api/')) {
+          return true;
+        }
+
+        // Public routes that don't require authentication
+        const publicRoutes = [
+          '/',
+          '/guides',
+          '/explore',
+          '/plan',
+          '/auth/login',
+          '/auth/register',
+          '/help',
+        ];
+
+        // Check if it's a public route
+        const isPublicRoute = publicRoutes.some(route =>
+          pathname === route || pathname.startsWith(`${route}/`)
+        );
+
+        if (isPublicRoute) {
+          return true;
+        }
+
+        // For protected routes, require authentication
+        return !!token;
+      },
+    },
+  }
+);
 
 export const config = {
   matcher: [
     /*
-     * Protect everything except public routes and static assets
+     * Match all request paths except for the ones starting with:
+     * - api/auth (authentication endpoints)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder files
      */
-    "/((?!_next/static|_next/image|favicon.ico).*)"
-  ]
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|public).*)',
+  ],
 };
