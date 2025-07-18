@@ -31,6 +31,12 @@ enum Role {
   ADMIN
 }
 
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  HIDDEN
+}
+
 model Product {
   id          String   @id @default(cuid())
   title       String
@@ -44,6 +50,7 @@ model Product {
   orders      OrderProduct[]
   reviews     Review[]
   createdAt   DateTime @default(now())
+  status      ProductStatus @default(ACTIVE)
 }
 
 model Order {
