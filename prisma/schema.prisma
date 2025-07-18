@@ -21,6 +21,7 @@ model User {
   reviews     Review[]
   followed    Follow[] @relation("BuyerFollows")
   followers   Follow[] @relation("FarmerFollows")
+   bio       String?
 
   createdAt   DateTime @default(now())
 }
