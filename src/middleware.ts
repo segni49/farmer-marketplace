@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 
 // Define protected routes and their required roles
 const protectedRoutes = {
-  '/dashboard': ['FARMER', 'ADMIN'],
+   '/dashboard': ['FARMER','BUYER', 'ADMIN'],
+  '/dashboard/orders': ['BUYER', 'FARMER', 'ADMIN'],
   '/admin': ['ADMIN'],
-  '/bookings': ['FARMER', 'BUYER', 'ADMIN'],
-  '/profile': ['FARMER', 'BUYER', 'ADMIN'],
+  '/bookings': ['BUYER', 'FARMER', 'ADMIN'],
+  '/profile': ['BUYER', 'FARMER', 'ADMIN'],
 } as const;
 
 export default withAuth(
